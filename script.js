@@ -3,6 +3,7 @@
 })();
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM загружен, инициализация...');
     const contactForm = document.getElementById('contact-form');
     if (contactForm) {
         contactForm.addEventListener('submit', function(event) {
@@ -18,6 +19,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const loginForm = document.getElementById('login-form');
+    const adminPanel = document.getElementById('admin-panel');
+    if (!loginForm || !adminPanel) {
+        console.error('Элементы login-form или admin-panel не найдены в DOM');
+        alert('Ошибка: Проверьте структуру HTML.');
+        return;
+    }
+
     if (document.getElementById('reviews-list') || document.getElementById('review-select')) loadReviews();
     if (document.getElementById('contact-requests') || document.getElementById('request-select')) loadContactRequests();
     if (document.getElementById('portfolio-select') || document.getElementById('portfolio-gallery')) loadPortfolioPhotos();
@@ -31,6 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loginAdmin() {
+    console.log('Попытка входа в админ-панель...');
     const username = document.getElementById('admin-username').value;
     const password = document.getElementById('admin-password').value;
     const admins = JSON.parse(localStorage.getItem('admins') || '[]');
@@ -45,40 +55,78 @@ function loginAdmin() {
 }
 
 function addSession() {
+    console.log('Запуск функции addSession...');
     const name = document.getElementById('session-name').value;
     const password = document.getElementById('session-password').value;
     const files = document.getElementById('session-files').files;
-    if (name && password && files.length > 0) {
+    
+    if (!name || !password || files.length === 0) {
+        console.error('Ошибка: не все поля заполнены или не выбраны файлы');
+        alert('Заполните все поля и выберите файлы');
+        return;
+    }
+
+    try {
         const sessions = JSON.parse(localStorage.getItem('sessions') || '[]');
+        console.log(`Текущее количество сессий: ${sessions.length}`);
         const readerPromises = Array.from(files).map(file => {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
+                console.log(`Чтение файла: ${file.name}`);
                 const reader = new FileReader();
-                reader.onload = () => resolve({ name: file.name, data: reader.result });
+                reader.onload = () => {
+                    console.log(`Файл ${file.name} успешно прочитан`);
+                    resolve({ name: file.name, data: reader.result });
+                };
+                reader.onerror = () => {
+                    console.error(`Ошибка чтения файла ${file.name}`);
+                    reject(new Error(`Ошибка чтения файла ${file.name}`));
+                };
                 reader.readAsDataURL(file);
             });
         });
 
-        Promise.all(readerPromises).then(images => {
-            const newSession = {
-                id: sessions.length + 1,
-                name,
-                password,
-                photos: images // Сохраняем base64-данные
-            };
-            sessions.push(newSession);
-            localStorage.setItem('sessions', JSON.stringify(sessions));
-            loadSessions();
-            alert(`Фотосессия "${name}" добавлена! Название и пароль отправьте клиенту.`);
-            document.getElementById('session-name').value = '';
-            document.getElementById('session-password').value = '';
-            document.getElementById('session-files').value = '';
-        });
-    } else {
-        alert('Заполните все поля и выберите файлы');
+        Promise.all(readerPromises)
+            .then(images => {
+                console.log(`Все изображения прочитаны, добавляем сессию...`);
+                const newSession = {
+                    id: sessions.length + 1,
+                    name,
+                    password,
+                    photos: images
+                };
+                sessions.push(newSession);
+                try {
+                    // Проверка объёма localStorage перед сохранением
+                    const totalSize = new Blob([localStorage.getItem('sessions') || '[]']).size + JSON.stringify(sessions).length;
+                    if (totalSize > 5 * 1024 * 1024) { // 5MB лимит
+                        console.error('Превышен лимит localStorage');
+                        alert('Ошибка: Превышен лимит хранения. Удалите старые данные или уменьшите количество/размер изображений.');
+                        return;
+                    }
+                    localStorage.setItem('sessions', JSON.stringify(sessions));
+                    console.log('Сессия сохранена в localStorage');
+                    loadSessions();
+                    alert(`Фотосессия "${name}" добавлена! Название и пароль отправьте клиенту.`);
+                    document.getElementById('session-name').value = '';
+                    document.getElementById('session-password').value = '';
+                    document.getElementById('session-files').value = '';
+                } catch (e) {
+                    console.error('Ошибка сохранения в localStorage:', e);
+                    alert('Ошибка сохранения фотосессии. Возможно, localStorage переполнен.');
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка обработки изображений:', error);
+                alert('Ошибка при обработке изображений. Проверьте консоль для деталей.');
+            });
+    } catch (e) {
+        console.error('Общая ошибка в функции addSession:', e);
+        alert('Произошла ошибка. Проверьте консоль для деталей.');
     }
 }
 
 function deleteSession() {
+    console.log('Запуск функции deleteSession...');
     const select = document.getElementById('session-select');
     const sessionId = select.value;
     if (sessionId) {
@@ -93,6 +141,7 @@ function deleteSession() {
 }
 
 function accessSession() {
+    console.log('Запуск функции accessSession...');
     const name = document.getElementById('session-name-input').value;
     const password = document.getElementById('session-pass-input').value;
     const sessions = JSON.parse(localStorage.getItem('sessions') || '[]');
@@ -104,7 +153,7 @@ function accessSession() {
         gallery.innerHTML = '';
         session.photos.forEach(photo => {
             const img = document.createElement('img');
-            img.src = photo.data; // Используем base64-данные
+            img.src = photo.data;
             img.alt = photo.name;
             img.onerror = () => {
                 console.error(`Ошибка отображения изображения: ${photo.name}`);
@@ -119,6 +168,7 @@ function accessSession() {
 }
 
 function addReview() {
+    console.log('Запуск функции addReview...');
     const author = document.getElementById('review-author').value;
     const text = document.getElementById('review-text').value;
     if (author && text) {
@@ -136,6 +186,7 @@ function addReview() {
 }
 
 function deleteReview() {
+    console.log('Запуск функции deleteReview...');
     const select = document.getElementById('review-select');
     const reviewId = select.value;
     if (reviewId) {
@@ -150,25 +201,53 @@ function deleteReview() {
 }
 
 function addPortfolioPhoto() {
+    console.log('Запуск функции addPortfolioPhoto...');
     const photo = document.getElementById('portfolio-photo').files[0];
-    if (photo) {
+    if (!photo) {
+        console.error('Ошибка: файл не выбран');
+        alert('Выберите фото');
+        return;
+    }
+
+    try {
         const photos = JSON.parse(localStorage.getItem('portfolioPhotos') || '[]');
+        console.log(`Текущее количество фото в портфолио: ${photos.length}`);
         const reader = new FileReader();
         reader.onload = () => {
+            console.log(`Файл ${photo.name} успешно прочитан`);
             const photoId = photos.length + 1;
             photos.push({ id: photoId, name: photo.name, data: reader.result });
-            localStorage.setItem('portfolioPhotos', JSON.stringify(photos));
-            loadPortfolioPhotos();
-            alert('Фото добавлено!');
-            document.getElementById('portfolio-photo').value = '';
+            try {
+                // Проверка объёма localStorage перед сохранением
+                const totalSize = new Blob([localStorage.getItem('portfolioPhotos') || '[]']).size + JSON.stringify(photos).length;
+                if (totalSize > 5 * 1024 * 1024) { // 5MB лимит
+                    console.error('Превышен лимит localStorage');
+                    alert('Ошибка: Превышен лимит хранения. Удалите старые данные или уменьшите количество/размер изображений.');
+                    return;
+                }
+                localStorage.setItem('portfolioPhotos', JSON.stringify(photos));
+                console.log('Фото сохранено в localStorage');
+                loadPortfolioPhotos();
+                alert('Фото добавлено!');
+                document.getElementById('portfolio-photo').value = '';
+            } catch (e) {
+                console.error('Ошибка сохранения в localStorage:', e);
+                alert('Ошибка сохранения фото. Возможно, localStorage переполнен.');
+            }
+        };
+        reader.onerror = () => {
+            console.error(`Ошибка чтения файла ${photo.name}`);
+            alert('Ошибка чтения файла. Проверьте консоль для деталей.');
         };
         reader.readAsDataURL(photo);
-    } else {
-        alert('Выберите фото');
+    } catch (e) {
+        console.error('Общая ошибка в функции addPortfolioPhoto:', e);
+        alert('Произошла ошибка. Проверьте консоль для деталей.');
     }
 }
 
 function deletePortfolioPhoto() {
+    console.log('Запуск функции deletePortfolioPhoto...');
     const select = document.getElementById('portfolio-select');
     const photoId = select.value;
     if (photoId) {
@@ -183,6 +262,7 @@ function deletePortfolioPhoto() {
 }
 
 function updateHomeText() {
+    console.log('Запуск функции updateHomeText...');
     const text = document.getElementById('home-text').value;
     if (text) {
         localStorage.setItem('homeText', text);
@@ -195,6 +275,7 @@ function updateHomeText() {
 }
 
 function updateAboutText() {
+    console.log('Запуск функции updateAboutText...');
     const text = document.getElementById('about-text-input').value;
     if (text) {
         localStorage.setItem('aboutText', text);
@@ -207,6 +288,7 @@ function updateAboutText() {
 }
 
 function updateContactText() {
+    console.log('Запуск функции updateContactText...');
     const text = document.getElementById('contact-text').value;
     if (text) {
         localStorage.setItem('contactText', text);
@@ -219,6 +301,7 @@ function updateContactText() {
 }
 
 function updateSocialLinks() {
+    console.log('Запуск функции updateSocialLinks...');
     const instagram = document.getElementById('instagram-url').value;
     const vk = document.getElementById('vk-url').value;
     if (instagram || vk) {
@@ -234,6 +317,7 @@ function updateSocialLinks() {
 }
 
 function updateDesign() {
+    console.log('Запуск функции updateDesign...');
     const color = document.getElementById('primary-color').value;
     const bgImage = document.getElementById('background-image').value;
     if (color || bgImage) {
@@ -248,6 +332,7 @@ function updateDesign() {
 }
 
 function addAdmin() {
+    console.log('Запуск функции addAdmin...');
     const username = document.getElementById('new-admin-username').value;
     const password = document.getElementById('new-admin-password').value;
     if (username && password) {
@@ -268,6 +353,7 @@ function addAdmin() {
 }
 
 function deleteAdmin() {
+    console.log('Запуск функции deleteAdmin...');
     const select = document.getElementById('admin-select');
     const username = select.value;
     if (username) {
@@ -282,6 +368,7 @@ function deleteAdmin() {
 }
 
 function saveContactRequest(formData) {
+    console.log('Запуск функции saveContactRequest...');
     const requests = JSON.parse(localStorage.getItem('contactRequests') || '[]');
     requests.push(formData);
     localStorage.setItem('contactRequests', JSON.stringify(requests));
@@ -289,6 +376,7 @@ function saveContactRequest(formData) {
 }
 
 function deleteContactRequest() {
+    console.log('Запуск функции deleteContactRequest...');
     const select = document.getElementById('request-select');
     const requestId = select.value;
     if (requestId) {
@@ -303,6 +391,7 @@ function deleteContactRequest() {
 }
 
 function loadReviews() {
+    console.log('Запуск функции loadReviews...');
     const reviewsList = document.getElementById('reviews-list');
     const reviewSelect = document.getElementById('review-select');
     if (reviewsList) {
@@ -328,6 +417,7 @@ function loadReviews() {
 }
 
 function loadContactRequests() {
+    console.log('Запуск функции loadContactRequests...');
     const requestsDiv = document.getElementById('contact-requests');
     const requestSelect = document.getElementById('request-select');
     if (requestsDiv) {
@@ -353,6 +443,7 @@ function loadContactRequests() {
 }
 
 function loadPortfolioPhotos() {
+    console.log('Запуск функции loadPortfolioPhotos...');
     const portfolioGallery = document.getElementById('portfolio-gallery');
     const portfolioSelect = document.getElementById('portfolio-select');
     if (portfolioGallery) {
@@ -364,7 +455,7 @@ function loadPortfolioPhotos() {
         }
         photos.forEach(photo => {
             const img = document.createElement('img');
-            img.src = photo.data; // Используем base64-данные
+            img.src = photo.data;
             img.alt = `Photo ${photo.id}`;
             img.onerror = () => {
                 console.error(`Ошибка отображения изображения: ${photo.name}`);
@@ -387,6 +478,7 @@ function loadPortfolioPhotos() {
 }
 
 function loadHomeText() {
+    console.log('Запуск функции loadHomeText...');
     const homeTextDiv = document.getElementById('home-text');
     if (homeTextDiv) {
         const text = localStorage.getItem('homeText') || `<p>Создаю воспоминания через объектив</p>`;
@@ -395,6 +487,7 @@ function loadHomeText() {
 }
 
 function loadAboutText() {
+    console.log('Запуск функции loadAboutText...');
     const aboutTextDiv = document.getElementById('about-text');
     if (aboutTextDiv) {
         const text = localStorage.getItem('aboutText') || `<p>Привет! Я Mishgun Photo, профессиональный фотограф. Специализируюсь на портретной, семейной и свадебной фотографии. Моя цель — запечатлеть ваши эмоции и создать воспоминания, которые останутся с вами навсегда.</p><p>Я использую современное оборудование и индивидуальный подход к каждому клиенту. Свяжитесь со мной, чтобы обсудить вашу фотосессию!</p>`;
@@ -403,6 +496,7 @@ function loadAboutText() {
 }
 
 function loadContactText() {
+    console.log('Запуск функции loadContactText...');
     const contactTextDiv = document.getElementById('contact-text');
     if (contactTextDiv) {
         const text = localStorage.getItem('contactText') || '';
@@ -411,6 +505,7 @@ function loadContactText() {
 }
 
 function loadSocialLinks() {
+    console.log('Запуск функции loadSocialLinks...');
     const socialLinksDiv = document.getElementById('social-links');
     if (socialLinksDiv) {
         const links = JSON.parse(localStorage.getItem('socialLinks') || '{}');
@@ -422,6 +517,7 @@ function loadSocialLinks() {
 }
 
 function loadAdmins() {
+    console.log('Запуск функции loadAdmins...');
     const adminSelect = document.getElementById('admin-select');
     if (adminSelect) {
         adminSelect.innerHTML = '<option value="">Select admin</option>';
@@ -436,6 +532,7 @@ function loadAdmins() {
 }
 
 function loadSessions() {
+    console.log('Запуск функции loadSessions...');
     const sessionSelect = document.getElementById('session-select');
     if (sessionSelect) {
         sessionSelect.innerHTML = '<option value="">Select session</option>';
@@ -450,6 +547,7 @@ function loadSessions() {
 }
 
 function applyDesign() {
+    console.log('Запуск функции applyDesign...');
     const design = JSON.parse(localStorage.getItem('design') || '{}');
     if (design.color) {
         document.documentElement.style.setProperty('--primary-color', design.color);
@@ -466,6 +564,7 @@ function applyDesign() {
 }
 
 function loadAll() {
+    console.log('Запуск функции loadAll...');
     loadReviews();
     loadContactRequests();
     loadPortfolioPhotos();
@@ -475,6 +574,7 @@ function loadAll() {
 
 // Инициализация админов
 if (!localStorage.getItem('admins')) {
+    console.log('Инициализация админов...');
     localStorage.setItem('admins', JSON.stringify([
         { username: 'mishgunh', password: '123456' },
         { username: 'mishaph', password: '1511misha' }
@@ -483,6 +583,7 @@ if (!localStorage.getItem('admins')) {
 
 // Функция для отправки в Telegram
 function sendToTelegram(formData) {
+    console.log('Запуск функции sendToTelegram...');
     const botToken = '7823221499:AAFlobI_DkYMsOCI8_gwMO2ATGOgeMuKlCU'; // Ваш токен
     const chatId = '7784884574'; // Ваш Chat ID
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
