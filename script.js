@@ -50,19 +50,29 @@ function addSession() {
     const files = document.getElementById('session-files').files;
     if (name && password && files.length > 0) {
         const sessions = JSON.parse(localStorage.getItem('sessions') || '[]');
-        const newSession = {
-            id: sessions.length + 1,
-            name,
-            password,
-            photos: Array.from(files).map(f => f.name)
-        };
-        sessions.push(newSession);
-        localStorage.setItem('sessions', JSON.stringify(sessions));
-        loadSessions();
-        alert(`Фотосессия "${name}" добавлена! Название и пароль отправьте клиенту.`);
-        document.getElementById('session-name').value = '';
-        document.getElementById('session-password').value = '';
-        document.getElementById('session-files').value = '';
+        const readerPromises = Array.from(files).map(file => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ name: file.name, data: reader.result });
+                reader.readAsDataURL(file);
+            });
+        });
+
+        Promise.all(readerPromises).then(images => {
+            const newSession = {
+                id: sessions.length + 1,
+                name,
+                password,
+                photos: images // Сохраняем base64-данные
+            };
+            sessions.push(newSession);
+            localStorage.setItem('sessions', JSON.stringify(sessions));
+            loadSessions();
+            alert(`Фотосессия "${name}" добавлена! Название и пароль отправьте клиенту.`);
+            document.getElementById('session-name').value = '';
+            document.getElementById('session-password').value = '';
+            document.getElementById('session-files').value = '';
+        });
     } else {
         alert('Заполните все поля и выберите файлы');
     }
@@ -94,11 +104,10 @@ function accessSession() {
         gallery.innerHTML = '';
         session.photos.forEach(photo => {
             const img = document.createElement('img');
-            img.src = `images/${photo}`;
-            img.alt = photo;
-            img.onload = () => console.log(`Изображение загружено: images/${photo}`);
+            img.src = photo.data; // Используем base64-данные
+            img.alt = photo.name;
             img.onerror = () => {
-                console.error(`Ошибка загрузки изображения: images/${photo}`);
+                console.error(`Ошибка отображения изображения: ${photo.name}`);
                 img.src = 'https://via.placeholder.com/300?text=Image+Not+Found';
                 img.style.border = '2px solid red';
             };
@@ -144,12 +153,16 @@ function addPortfolioPhoto() {
     const photo = document.getElementById('portfolio-photo').files[0];
     if (photo) {
         const photos = JSON.parse(localStorage.getItem('portfolioPhotos') || '[]');
-        const photoId = photos.length + 1;
-        photos.push({ id: photoId, name: photo.name });
-        localStorage.setItem('portfolioPhotos', JSON.stringify(photos));
-        loadPortfolioPhotos();
-        alert('Фото добавлено!');
-        document.getElementById('portfolio-photo').value = '';
+        const reader = new FileReader();
+        reader.onload = () => {
+            const photoId = photos.length + 1;
+            photos.push({ id: photoId, name: photo.name, data: reader.result });
+            localStorage.setItem('portfolioPhotos', JSON.stringify(photos));
+            loadPortfolioPhotos();
+            alert('Фото добавлено!');
+            document.getElementById('portfolio-photo').value = '';
+        };
+        reader.readAsDataURL(photo);
     } else {
         alert('Выберите фото');
     }
@@ -351,11 +364,10 @@ function loadPortfolioPhotos() {
         }
         photos.forEach(photo => {
             const img = document.createElement('img');
-            img.src = `images/${photo.name}`;
+            img.src = photo.data; // Используем base64-данные
             img.alt = `Photo ${photo.id}`;
-            img.onload = () => console.log(`Изображение загружено: images/${photo.name}`);
             img.onerror = () => {
-                console.error(`Ошибка загрузки изображения: images/${photo.name}`);
+                console.error(`Ошибка отображения изображения: ${photo.name}`);
                 img.src = 'https://via.placeholder.com/300?text=Image+Not+Found';
                 img.style.border = '2px solid red';
             };
