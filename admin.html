@@ -1,0 +1,126 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Админ-панель Mishgun Photo для управления контентом.">
+    <meta name="keywords" content="фотограф, админ, управление">
+    <title>Mishgun Photo | Админка</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <a href="index.html">Главная</a>
+        <a href="about.html">Обо мне</a>
+        <a href="portfolio.html">Портфолио</a>
+        <a href="contacts.html">Контакты</a>
+        <a href="reviews.html">Отзывы</a>
+        <a href="sessions.html">Фотосессии</a>
+        <a href="admin.html">Админка</a>
+    </nav>
+    <section class="admin">
+        <h2>Админ-панель</h2>
+        <div id="login-form" style="display: block;">
+            <input type="text" id="admin-username" placeholder="Имя пользователя">
+            <input type="password" id="admin-password" placeholder="Пароль">
+            <button onclick="loginAdmin()">Войти</button>
+        </div>
+        <div id="admin-panel" style="display: none;">
+            <h3>Управление фотосессиями</h3>
+            <input type="text" id="session-name" placeholder="Название фотосессии">
+            <input type="password" id="session-password" placeholder="Пароль">
+            <input type="file" id="session-files" multiple>
+            <button onclick="addSession()">Добавить фотосессию</button>
+            <select id="session-select"></select>
+            <button onclick="deleteSession()">Удалить фотосессию</button>
+
+            <h3>Управление портфолио</h3>
+            <input type="file" id="portfolio-photo">
+            <button onclick="addPortfolioPhoto()">Добавить фото</button>
+            <select id="portfolio-select"></select>
+            <button onclick="deletePortfolioPhoto()">Удалить фото</button>
+
+            <h3>Управление отзывами</h3>
+            <input type="text" id="review-author" placeholder="Автор">
+            <textarea id="review-text" placeholder="Текст отзыва"></textarea>
+            <button onclick="addReview()">Добавить отзыв</button>
+            <select id="review-select"></select>
+            <button onclick="deleteReview()">Удалить отзыв</button>
+
+            <h3>Управление текстами</h3>
+            <textarea id="home-text" placeholder="Текст главной"></textarea>
+            <button onclick="updateHomeText()">Обновить главную</button>
+            <textarea id="about-text-input" placeholder="Текст об авторе"></textarea>
+            <button onclick="updateAboutText()">Обновить об авторе</button>
+            <textarea id="contact-text" placeholder="Текст контактов"></textarea>
+            <button onclick="updateContactText()">Обновить контакты</button>
+
+            <h3>Социальные сети</h3>
+            <input type="text" id="instagram-url" placeholder="Instagram URL">
+            <input type="text" id="vk-url" placeholder="VK URL">
+            <button onclick="updateSocialLinks()">Обновить соцсети</button>
+
+            <h3>Дизайн</h3>
+            <input type="color" id="primary-color" value="#ff6f61">
+            <input type="text" id="background-image" placeholder="URL фона">
+            <button onclick="updateDesign()">Обновить дизайн</button>
+
+            <h3>Управление админами</h3>
+            <input type="text" id="new-admin-username" placeholder="Имя пользователя">
+            <input type="password" id="new-admin-password" placeholder="Пароль">
+            <button onclick="addAdmin()">Добавить админа</button>
+            <select id="admin-select"></select>
+            <button onclick="deleteAdmin()">Удалить админа</button>
+
+            <h3>Заявки</h3>
+            <div id="contact-requests"></div>
+            <select id="request-select"></select>
+            <button onclick="deleteContactRequest()">Удалить заявку</button>
+        </div>
+    </section>
+    <footer>
+        <p>© 2025 Mishgun Photo.</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
